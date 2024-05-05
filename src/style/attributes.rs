@@ -120,6 +120,58 @@ impl Attributes {
     pub const fn is_empty(self) -> bool {
         self.0 == 0
     }
+
+    /// Returns `true` if there are attributes common to both sets.
+    #[inline(always)]
+    pub const fn intersects(&self, other: Self) -> bool {
+        (self.0 & other.0) != 0
+    }
+
+    /// Returns `true` if all attributes in `other` are contained within `self`.
+    #[inline(always)]
+    pub const fn contains(&self, other: Self) -> bool {
+        (self.0 & other.0) == other.0
+    }
+
+    /// Returns the attributes contained in *both* `self` and `other`.
+    ///
+    /// This is equivalent to using the `&` operator.
+    #[inline(always)]
+    #[must_use]
+    pub const fn intersection(self, other: Self) -> Self {
+        Self(self.0 & other.0)
+    }
+
+    /// Returns the combined attributes of `self` and `other`.
+    ///
+    /// This is equivalent to using the `|` operator.
+    #[inline(always)]
+    #[must_use]
+    pub const fn union(self, other: Self) -> Self {
+        Self(self.0 | other.0)
+    }
+
+    /// Returns the attributes present in `self` that are not present in `other`.
+    #[inline(always)]
+    #[must_use]
+    pub const fn difference(self, other: Self) -> Self {
+        Self(self.0 & !other.0)
+    }
+
+    /// Returns the attributes present in `self` or `other`, but not present in
+    /// both.
+    ///
+    /// This is equivalent to using the `^` operator.
+    #[inline(always)]
+    #[must_use]
+    pub const fn symmetric_difference(self, other: Self) -> Self {
+        Self(self.0 ^ other.0)
+    }
+
+    /// Returns an iterator over all the attributes in `self`.
+    pub fn iter(&self) -> impl Iterator<Item = Attribute> + '_ {
+        Attribute::iterator().filter(|a| self.has(*a))
+    }
 }
 
 #[cfg(test)]
@@ -140,8 +192,74 @@ mod tests {
 
     #[test]
     fn test_attributes_const() {
-      const ATTRIBUTES: Attributes = Attributes::none().with(Attribute::Bold).with(Attribute::Italic).without(Attribute::Bold);
-      assert!(!ATTRIBUTES.has(Attribute::Bold));
-      assert!(ATTRIBUTES.has(Attribute::Italic));
+        const ATTRIBUTES: Attributes = Attributes::none()
+            .with(Attribute::Bold)
+            .with(Attribute::Italic)
+            .without(Attribute::Bold);
+        assert!(!ATTRIBUTES.has(Attribute::Bold));
+        assert!(ATTRIBUTES.has(Attribute::Italic));
+    }
+
+    #[test]
+    fn test_set_operations() {
+        use Attribute::*;
+        let a = Attributes::none()
+            .with(Bold)
+            .with(Italic)
+            .with(Dim)
+            .with(Undercurled);
+
+        let a_subset = Attributes::none().with(Bold).with(Dim);
+        let b = Attributes::none()
+            .with(Bold)
+            .with(Reverse)
+            .with(Dim)
+            .with(Underdashed);
+
+        assert!(a.contains(a));
+        assert!(b.contains(b));
+
+        assert!(a.contains(a_subset));
+        assert!(!a_subset.contains(a));
+        assert!(!a.contains(b));
+        assert!(!b.contains(a));
+
+        assert!(a.intersects(b));
+        assert!(b.intersects(a));
+
+        let a_b_common = Attributes::from([Bold, Dim].as_slice());
+        assert_eq!(a.intersection(b), a_b_common);
+        assert_eq!(b.intersection(a), a_b_common);
+
+        let a_b_union = Attributes::none()
+            .with(Bold)
+            .with(Italic)
+            .with(Dim)
+            .with(Undercurled)
+            .with(Reverse)
+            .with(Underdashed);
+
+        assert_eq!(a.union(b), a_b_union);
+
+        let a_b_diff = Attributes::none().with(Italic).with(Undercurled);
+        let b_a_diff = Attributes::none().with(Reverse).with(Underdashed);
+        assert_eq!(a.difference(b), a_b_diff);
+        assert_eq!(b.difference(a), b_a_diff);
+
+        let a_b_symdiff = Attributes::none()
+            // in a
+            .with(Italic)
+            .with(Undercurled)
+            // in b
+            .with(Reverse)
+            .with(Underdashed);
+        assert_eq!(a.symmetric_difference(b), a_b_symdiff);
+        assert_eq!(b.symmetric_difference(a), a_b_symdiff);
+        assert_eq!(a.symmetric_difference(b), a_b_diff.union(b_a_diff));
+
+        // empty sets
+        let empty_a = Attributes::none();
+        let empty_b = Attributes::none();
+        assert!(!empty_a.intersects(empty_b))
     }
 }
