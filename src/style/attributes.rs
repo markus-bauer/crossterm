@@ -203,17 +203,46 @@ mod tests {
     #[test]
     fn test_set_operations() {
         use Attribute::*;
+
         let a = Attributes::none()
+            // common
             .with(Bold)
-            .with(Italic)
             .with(Dim)
+            // unique
+            .with(Italic)
             .with(Undercurled);
 
-        let a_subset = Attributes::none().with(Bold).with(Dim);
         let b = Attributes::none()
+            // common
             .with(Bold)
-            .with(Reverse)
             .with(Dim)
+            // unique
+            .with(Reverse)
+            .with(Underdashed);
+
+        let a_b_union = Attributes::none()
+            // common
+            .with(Bold)
+            .with(Dim)
+            // in a
+            .with(Italic)
+            .with(Undercurled)
+            // in b
+            .with(Reverse)
+            .with(Underdashed);
+
+        let a_b_diff = Attributes::none().with(Italic).with(Undercurled);
+        let b_a_diff = Attributes::none().with(Reverse).with(Underdashed);
+
+        let a_subset = Attributes::none().with(Bold).with(Italic);
+        let a_b_common = Attributes::from([Bold, Dim].as_slice());
+
+        let a_b_symdiff = Attributes::none()
+            // in a
+            .with(Italic)
+            .with(Undercurled)
+            // in b
+            .with(Reverse)
             .with(Underdashed);
 
         assert!(a.contains(a));
@@ -227,32 +256,14 @@ mod tests {
         assert!(a.intersects(b));
         assert!(b.intersects(a));
 
-        let a_b_common = Attributes::from([Bold, Dim].as_slice());
         assert_eq!(a.intersection(b), a_b_common);
         assert_eq!(b.intersection(a), a_b_common);
 
-        let a_b_union = Attributes::none()
-            .with(Bold)
-            .with(Italic)
-            .with(Dim)
-            .with(Undercurled)
-            .with(Reverse)
-            .with(Underdashed);
-
         assert_eq!(a.union(b), a_b_union);
 
-        let a_b_diff = Attributes::none().with(Italic).with(Undercurled);
-        let b_a_diff = Attributes::none().with(Reverse).with(Underdashed);
         assert_eq!(a.difference(b), a_b_diff);
         assert_eq!(b.difference(a), b_a_diff);
 
-        let a_b_symdiff = Attributes::none()
-            // in a
-            .with(Italic)
-            .with(Undercurled)
-            // in b
-            .with(Reverse)
-            .with(Underdashed);
         assert_eq!(a.symmetric_difference(b), a_b_symdiff);
         assert_eq!(b.symmetric_difference(a), a_b_symdiff);
         assert_eq!(a.symmetric_difference(b), a_b_diff.union(b_a_diff));
